@@ -41,6 +41,10 @@ cd backend && uv run pytest              # all tests
 cd backend && uv run pytest tests/test_hello.py  # single file
 ```
 
+## Requirements Management
+
+**Never automatically install or compile requirements.** Only add dependencies to `pyproject.toml`. The user will run `make requirements-install` (`uv sync --frozen`) manually.
+
 ## Architecture
 
 All application code lives under `backend/app/`:
