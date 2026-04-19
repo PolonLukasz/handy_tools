@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
+import "./globals.css";
+import { Providers } from "@/components/Providers";
+import { AppShell } from "@/components/layout/AppShell";
 
 export const metadata: Metadata = {
   title: "HandyTools",
-  description: "HandyTools application",
+  description: "Your personal handy tools dashboard",
 };
 
 export default function RootLayout({
@@ -11,8 +14,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html lang="en" className="h-full">
+      <body className="h-full overflow-hidden">
+        <Providers>
+          <AppShell>{children}</AppShell>
+        </Providers>
+      </body>
     </html>
   );
 }
