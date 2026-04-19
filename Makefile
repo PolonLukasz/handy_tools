@@ -1,7 +1,9 @@
 BACKEND_DIR = backend
 VENV_DIR = $(BACKEND_DIR)/.venv
+FRONTEND_DIR = frontend
 
-.PHONY: create_virtualenv requirements-compile requirements-install
+.PHONY: create_virtualenv requirements-compile requirements-install \
+        frontend-install frontend-dev frontend-build
 
 create_virtualenv:
 	@if [ ! -d "$(VENV_DIR)" ]; then \
@@ -16,3 +18,12 @@ requirements-compile:
 
 requirements-install:
 	cd $(BACKEND_DIR) && uv sync --frozen
+
+frontend-install:
+	cd $(FRONTEND_DIR) && npm install
+
+frontend-dev:
+	cd $(FRONTEND_DIR) && npm run dev
+
+frontend-build:
+	cd $(FRONTEND_DIR) && npm run build
