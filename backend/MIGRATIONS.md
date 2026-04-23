@@ -13,15 +13,12 @@ cp .env.example .env  # if not done yet
 
 ## Adding SQLAlchemy Models
 
-Before generating auto-migrations, define your models and register their metadata in `alembic/env.py`:
+`alembic/env.py` imports `Base` from `app.models`, so any new model registered on that `Base` is picked up by `--autogenerate` automatically. To add one:
 
-```python
-# alembic/env.py
-from app.models import Base          # your declarative Base
-target_metadata = Base.metadata      # replace the current `None`
-```
+1. Create the model in `backend/app/models/<feature>.py` (subclass `Base`).
+2. Re-export it in `backend/app/models/__init__.py` so the import in `env.py` loads it.
 
-Without this, `--autogenerate` produces empty migrations. You can still write migrations manually regardless.
+You can also write migrations by hand — `--autogenerate` is optional.
 
 ## Creating a Migration
 

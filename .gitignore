@@ -215,3 +215,6 @@ __marimo__/
 
 ____*
 /*/**/____*
+
+# Uploaded documents (configurable via STORED_DOCUMENTS_DIR)
+backend/stored_documents/

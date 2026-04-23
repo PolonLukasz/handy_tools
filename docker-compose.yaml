@@ -5,10 +5,17 @@ services:
     ports:
       - "8000:8000"
     env_file:
-      - backend/.env.example
+      - backend/.env
+    environment:
+      DB_HOST: db
+      STORED_DOCUMENTS_DIR: /app/stored_documents
+    volumes:
+      - stored_documents:/app/stored_documents
     depends_on:
       db:
         condition: service_healthy
+    networks:
+      - backend
 
   db:
     image: postgres:17
@@ -25,16 +32,23 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-
-  frontend:
-    build:
-      context: ./frontend
-    ports:
-      - "3000:3000"
-    env_file:
-      - frontend/.env.example
-    depends_on:
+    networks:
       - backend
+
+  # frontend:
+  #   build:
+  #     context: ./frontend
+  #   ports:
+  #     - "3000:3000"
+  #   env_file:
+  #     - frontend/.env.example
+  #   depends_on:
+  #     - backend
 
 volumes:
   postgres_data:
+  stored_documents:
+
+networks:
+  backend:
+    driver: bridge

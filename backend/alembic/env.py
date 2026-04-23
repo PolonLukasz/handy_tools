@@ -8,17 +8,18 @@ from alembic import context
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from app.config import settings
+from app.models import Base, Document # noqa: F401 — imports models so metadata is populated
 
 config = context.config
-config.set_main_option("sqlalchemy.url", settings.database_url)
+config.set_main_option(
+    "sqlalchemy.url",
+    settings.database_url.replace("postgresql://", "postgresql+psycopg://", 1),
+)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Import your models' Base.metadata here once you define SQLAlchemy models:
-# from app.models import Base
-# target_metadata = Base.metadata
-target_metadata = None
+target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:

@@ -1,7 +1,7 @@
-from fastapi.testclient import TestClient
+from httpx import AsyncClient
 
 
-def test_hello_world(client: TestClient) -> None:
-    response = client.get("/api/v1/hello/world")
+async def test_hello_world(client: AsyncClient) -> None:
+    response = await client.get("/api/v1/hello/world")
     assert response.status_code == 200
     assert response.json() == {"message": "Hello, World!"}
