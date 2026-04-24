@@ -41,8 +41,15 @@ services:
   #   ports:
   #     - "3000:3000"
   #   env_file:
-  #     - frontend/.env.example
+  #     - frontend/.env.local
+  #   environment:
+  #     # Browser-facing URL (inlined into the JS bundle at build time)
+  #     NEXT_PUBLIC_API_URL: http://localhost:8000
+  #     # SSR-only URL — Next.js server talks to the backend over the Docker network
+  #     API_INTERNAL_URL: http://backend:8000
   #   depends_on:
+  #     - backend
+  #   networks:
   #     - backend
 
 volumes:

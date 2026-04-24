@@ -17,7 +17,9 @@ cp .env.example .env.local
 
 | Variable | Description | Default |
 |---|---|---|
-| `NEXT_PUBLIC_API_URL` | Backend API base URL | `http://localhost:8000` |
+| `NEXT_PUBLIC_API_URL` | Backend API base URL (browser + SSR) | `http://localhost:8000` |
+| `API_INTERNAL_URL` | Optional SSR-only override (e.g. Docker service name) | falls back to `NEXT_PUBLIC_API_URL` |
+| `OPENAPI_INPUT` | Source for `npm run generate:api` — URL or file path | backend `/openapi.json` |
 
 ## Install Dependencies
 
@@ -79,4 +81,15 @@ The frontend container is built using a multi-stage Docker build (`Dockerfile`) 
 
 ```bash
 npm run lint
+```
+
+## API Client
+
+The typed API client is auto-generated from the backend's OpenAPI schema using [`@hey-api/openapi-ts`](https://heyapi.dev/). See [API_CLIENT.md](./API_CLIENT.md) for the full generation workflow and env-var reference.
+
+Quick commands:
+
+```bash
+npm run generate:api     # (re)generate client against the live backend
+npm run fetch:spec       # snapshot the OpenAPI schema to openapi.json for offline builds
 ```

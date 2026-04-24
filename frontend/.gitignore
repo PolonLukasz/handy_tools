@@ -1,0 +1,5 @@
+# Auto-generated API client — produced by `npm run generate:api`
+src/api/generated/
+
+# Optional snapshot of the backend's OpenAPI schema for offline client generation
+openapi.json

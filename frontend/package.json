@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "generate:api": "openapi-ts",
+    "fetch:spec": "curl -fsSL \"${OPENAPI_URL:-http://localhost:8000/openapi.json}\" -o openapi.json && echo 'Saved openapi.json'"
   },
   "dependencies": {
     "next": "^16.2",
@@ -27,6 +29,7 @@
     "eslint": "^10",
     "eslint-config-next": "^16",
     "tailwindcss": "^4",
-    "@tailwindcss/postcss": "^4"
+    "@tailwindcss/postcss": "^4",
+    "@hey-api/openapi-ts": "^0.95.0"
   }
 }
