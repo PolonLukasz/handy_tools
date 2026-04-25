@@ -4,17 +4,14 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { PDFDocument } from "pdf-lib";
 import {
   Upload, X, FileText, Download, Scissors, Merge,
-  AlertCircle, CheckCircle2, Loader2, Library, Search,
+  AlertCircle, CheckCircle2, Loader2,
   Info, Lock, Eye, EyeOff, Save,
 } from "lucide-react";
-import { useDocuments, StoredDocument } from "@/context/DocumentsContext";
 
 type Mode = "split" | "merge" | "metadata" | "encrypt";
-type AddSource = "upload" | "library";
 
 interface PdfFile {
   id: string;
-  docId: string | null;
   name: string;
   pageCount: number | null;
   buffer: ArrayBuffer;
@@ -119,100 +116,6 @@ function DropZone({ multiple, onFiles }: { multiple: boolean; onFiles: (files: F
   );
 }
 
-interface LibraryPickerProps {
-  multiple: boolean;
-  alreadyAdded: Set<string>;
-  onSelect: (docs: StoredDocument[]) => void;
-  onClose: () => void;
-}
-
-function LibraryPicker({ multiple, alreadyAdded, onSelect, onClose }: LibraryPickerProps) {
-  const { documents } = useDocuments();
-  const [query, setQuery] = useState("");
-  const [checked, setChecked] = useState<Set<string>>(new Set());
-
-  const available = documents.filter((d) => d.buffer !== null && !alreadyAdded.has(d.id));
-  const filtered = available.filter((d) => d.name.toLowerCase().includes(query.toLowerCase()));
-
-  const toggle = (id: string) => {
-    if (!multiple) { setChecked(new Set([id])); return; }
-    setChecked((prev) => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  };
-
-  const handleAdd = () => {
-    const selected = available.filter((d) => checked.has(d.id));
-    if (selected.length) onSelect(selected);
-    onClose();
-  };
-
-  return (
-    <div className="border border-blue-200 bg-blue-50/40 rounded-xl overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-blue-100 bg-white">
-        <span className="text-sm text-gray-700">Select from Library {multiple ? "" : "(choose one)"}</span>
-        <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={16} /></button>
-      </div>
-      <div className="px-3 py-2 border-b border-blue-100 bg-white">
-        <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5">
-          <Search size={13} className="text-gray-400 shrink-0" />
-          <input
-            type="text" placeholder="Search documents…" value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="flex-1 text-sm bg-transparent outline-none text-gray-700 placeholder-gray-400"
-          />
-        </div>
-      </div>
-      <div className="max-h-52 overflow-y-auto divide-y divide-blue-100">
-        {filtered.length === 0 ? (
-          <p className="px-4 py-6 text-center text-sm text-gray-400">
-            {available.length === 0 ? "No uploaded documents yet." : "No documents match your search."}
-          </p>
-        ) : (
-          filtered.map((doc) => {
-            const isChecked = checked.has(doc.id);
-            return (
-              <div
-                key={doc.id}
-                onClick={() => toggle(doc.id)}
-                className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors ${
-                  isChecked ? "bg-blue-100" : "hover:bg-blue-50"
-                }`}
-              >
-                <input
-                  type={multiple ? "checkbox" : "radio"}
-                  checked={isChecked}
-                  onChange={() => toggle(doc.id)}
-                  onClick={(e) => e.stopPropagation()}
-                  className="accent-blue-600 w-4 h-4 shrink-0"
-                />
-                <FileText size={15} className="text-red-400 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-gray-800 truncate">{doc.name}</p>
-                  <p className="text-xs text-gray-400">{doc.pages} pages · {doc.sizeMb.toFixed(1)} MB</p>
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
-      {filtered.length > 0 && (
-        <div className="px-4 py-3 bg-white border-t border-blue-100 flex justify-end gap-2">
-          <button onClick={onClose} className="px-3 py-1.5 rounded-lg text-sm text-gray-500 hover:bg-gray-100 transition-colors">Cancel</button>
-          <button
-            onClick={handleAdd} disabled={checked.size === 0}
-            className="px-4 py-1.5 rounded-lg text-sm bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            Add {checked.size > 0 ? `(${checked.size})` : ""}
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
 function FileRow({
   pdfFile, index, total, onRemove, onMoveUp, onMoveDown,
 }: {
@@ -226,7 +129,6 @@ function FileRow({
         <p className="text-sm text-gray-800 truncate">{pdfFile.name}</p>
         <p className="text-xs text-gray-400">
           {pdfFile.pageCount !== null ? `${pdfFile.pageCount} page${pdfFile.pageCount !== 1 ? "s" : ""}` : "Reading…"}
-          {pdfFile.docId ? " · from library" : " · uploaded"}
         </p>
       </div>
       <div className="flex items-center gap-1">
@@ -235,24 +137,6 @@ function FileRow({
         <button onClick={onRemove}                                   className="p-1 rounded text-gray-400 hover:text-red-500 ml-1" title="Remove"><X size={16} /></button>
       </div>
     </div>
-  );
-}
-
-function SourceTab({ active, value, label, icon: Icon, onClick }: {
-  active: AddSource; value: AddSource; label: string;
-  icon: React.ElementType; onClick: () => void;
-}) {
-  const isActive = active === value;
-  return (
-    <button
-      onClick={onClick}
-      className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-colors ${
-        isActive ? "bg-white shadow-sm text-gray-800 border border-gray-200" : "text-gray-500 hover:text-gray-700"
-      }`}
-    >
-      <Icon size={15} />
-      {label}
-    </button>
   );
 }
 
@@ -420,15 +304,11 @@ const MODES: { id: Mode; label: string; Icon: React.ElementType }[] = [
 ];
 
 export function PdfConverter() {
-  const { addDocuments } = useDocuments();
-
   const [mode,        setMode]        = useState<Mode>("split");
   const [files,       setFiles]       = useState<PdfFile[]>([]);
   const [outputs,     setOutputs]     = useState<OutputFile[]>([]);
   const [processing,  setProcessing]  = useState(false);
   const [error,       setError]       = useState<string | null>(null);
-  const [addSource,   setAddSource]   = useState<AddSource>("upload");
-  const [showLibrary, setShowLibrary] = useState(false);
 
   const [meta,       setMeta]       = useState<PdfMetadata>(EMPTY_META);
   const [metaLoaded, setMetaLoaded] = useState(false);
@@ -477,34 +357,15 @@ export function PdfConverter() {
         rawFiles.map(async (file) => {
           const buffer    = await readFileAsArrayBuffer(file);
           const pageCount = await getPageCount(buffer);
-          return { id: makeId(), docId: null, name: file.name, pageCount, buffer };
+          return { id: makeId(), name: file.name, pageCount, buffer };
         }),
-      );
-      addDocuments(
-        entries.map((e) => ({
-          id: makeId(), name: e.name, added: new Date(),
-          sizeMb: parseFloat((e.buffer.byteLength / (1024 * 1024)).toFixed(2)),
-          pages: e.pageCount ?? 0, buffer: e.buffer,
-        })),
       );
       const isSingle = mode === "split" || mode === "metadata" || mode === "encrypt";
       if (isSingle) setFiles([entries[0]]);
       else setFiles((prev) => [...prev, ...entries]);
     },
-    [mode, addDocuments],
+    [mode],
   );
-
-  const handleLibrarySelect = (docs: StoredDocument[]) => {
-    const entries: PdfFile[] = docs.map((doc) => ({
-      id: makeId(), docId: doc.id, name: doc.name,
-      pageCount: doc.pages, buffer: doc.buffer!,
-    }));
-    const isSingle = mode === "split" || mode === "metadata" || mode === "encrypt";
-    if (isSingle) setFiles([entries[0]]);
-    else setFiles((prev) => [...prev, ...entries]);
-    setError(null);
-    clearOutputs();
-  };
 
   const removeFile = (id: string) => {
     setFiles((prev) => prev.filter((f) => f.id !== id));
@@ -529,7 +390,6 @@ export function PdfConverter() {
     setFiles([]);
     clearOutputs();
     setError(null);
-    setShowLibrary(false);
     setMeta(EMPTY_META);
     setMetaLoaded(false);
   };
@@ -547,7 +407,7 @@ export function PdfConverter() {
         const [page]  = await newDoc.copyPages(srcDoc, [i]);
         newDoc.addPage(page);
         const bytes = await newDoc.save();
-        const blob  = new Blob([bytes], { type: "application/pdf" });
+        const blob  = new Blob([bytes as unknown as ArrayBuffer], { type: "application/pdf" });
         results.push({ name: `${baseName}_page_${i + 1}.pdf`, url: URL.createObjectURL(blob) });
       }
       setOutputs(results);
@@ -566,7 +426,7 @@ export function PdfConverter() {
         pages.forEach((p) => mergedDoc.addPage(p));
       }
       const bytes = await mergedDoc.save();
-      const blob  = new Blob([bytes], { type: "application/pdf" });
+      const blob  = new Blob([bytes as unknown as ArrayBuffer], { type: "application/pdf" });
       setOutputs([{ name: "merged.pdf", url: URL.createObjectURL(blob) }]);
     } catch { setError("Failed to merge PDFs. Make sure all files are valid, non-encrypted PDFs."); }
     finally   { setProcessing(false); }
@@ -588,7 +448,7 @@ export function PdfConverter() {
       if (modD)      doc.setModificationDate(modD);
 
       const bytes    = await doc.save();
-      const blob     = new Blob([bytes], { type: "application/pdf" });
+      const blob     = new Blob([bytes as unknown as ArrayBuffer], { type: "application/pdf" });
       const baseName = files[0].name.replace(/\.pdf$/i, "");
       setOutputs([{ name: `${baseName}_edited_metadata.pdf`, url: URL.createObjectURL(blob) }]);
     } catch { setError("Failed to save metadata. The PDF might be encrypted or corrupted."); }
@@ -600,8 +460,9 @@ export function PdfConverter() {
     setProcessing(true); setError(null); clearOutputs();
     try {
       const doc      = await PDFDocument.load(files[0].buffer, { ignoreEncryption: true });
-      const bytes    = await doc.save({ userPassword: password, ownerPassword: password });
-      const blob     = new Blob([bytes], { type: "application/pdf" });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const bytes    = await (doc as any).save({ userPassword: password, ownerPassword: password });
+      const blob     = new Blob([bytes as unknown as ArrayBuffer], { type: "application/pdf" });
       const baseName = files[0].name.replace(/\.pdf$/i, "");
       setOutputs([{ name: `${baseName}_encrypted.pdf`, url: URL.createObjectURL(blob) }]);
       setShowEncryptModal(false);
@@ -609,9 +470,8 @@ export function PdfConverter() {
     finally   { setProcessing(false); }
   };
 
-  const canProcess      = !processing && (mode === "split" ? files.length === 1 : files.length >= 2);
-  const alreadyAddedIds = new Set(files.map((f) => f.docId).filter(Boolean) as string[]);
-  const canAddMore      = mode === "merge" || files.length === 0;
+  const canProcess = !processing && (mode === "split" ? files.length === 1 : files.length >= 2);
+  const canAddMore = mode === "merge" || files.length === 0;
 
   return (
     <div className="h-full overflow-auto bg-gray-50 p-6">
@@ -633,39 +493,14 @@ export function PdfConverter() {
 
         <div className="bg-white border border-gray-200 rounded-xl p-5">
           {mode === "split"    && <p className="text-sm text-gray-500">Select or upload a single PDF and it will be split into individual files — one per page — ready to download.</p>}
-          {mode === "merge"    && <p className="text-sm text-gray-500">Select or upload two or more PDF files. They will be merged in the order shown below.</p>}
-          {mode === "metadata" && <p className="text-sm text-gray-500">Select or upload a PDF to load and edit its metadata — title, author, subject, and more. Saved as a new file.</p>}
-          {mode === "encrypt"  && <p className="text-sm text-gray-500">Select or upload a PDF and protect it with a password. The encrypted copy will be saved as a new file.</p>}
+          {mode === "merge"    && <p className="text-sm text-gray-500">Upload two or more PDF files. They will be merged in the order shown below.</p>}
+          {mode === "metadata" && <p className="text-sm text-gray-500">Upload a PDF to load and edit its metadata — title, author, subject, and more. Saved as a new file.</p>}
+          {mode === "encrypt"  && <p className="text-sm text-gray-500">Upload a PDF and protect it with a password. The encrypted copy will be saved as a new file.</p>}
         </div>
 
         {canAddMore && (
-          <div className="bg-white border border-gray-200 rounded-xl p-4 flex flex-col gap-4">
-            <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1 self-start">
-              <SourceTab active={addSource} value="library" label="From Library" icon={Library}
-                onClick={() => { setAddSource("library"); setShowLibrary(true); }} />
-              <SourceTab active={addSource} value="upload"  label="Upload New"   icon={Upload}
-                onClick={() => { setAddSource("upload"); setShowLibrary(false); }} />
-            </div>
-
-            {addSource === "library" && showLibrary && (
-              <LibraryPicker
-                multiple={mode === "merge"}
-                alreadyAdded={alreadyAddedIds}
-                onSelect={handleLibrarySelect}
-                onClose={() => setShowLibrary(false)}
-              />
-            )}
-            {addSource === "library" && !showLibrary && (
-              <button
-                onClick={() => setShowLibrary(true)}
-                className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 transition-colors"
-              >
-                <Library size={15} /> Browse library…
-              </button>
-            )}
-            {addSource === "upload" && (
-              <DropZone multiple={mode === "merge"} onFiles={handleUploadFiles} />
-            )}
+          <div className="bg-white border border-gray-200 rounded-xl p-4">
+            <DropZone multiple={mode === "merge"} onFiles={handleUploadFiles} />
           </div>
         )}
 

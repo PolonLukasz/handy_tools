@@ -2,7 +2,7 @@
 
 import { type Client, formDataBodySerializer, type Options as Options2, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { DeleteDocumentApiV1DocumentsDocumentIdDeleteData, DeleteDocumentApiV1DocumentsDocumentIdDeleteErrors, DeleteDocumentApiV1DocumentsDocumentIdDeleteResponses, GetDocumentApiV1DocumentsDocumentIdGetData, GetDocumentApiV1DocumentsDocumentIdGetErrors, GetDocumentApiV1DocumentsDocumentIdGetResponses, HelloWorldApiV1HelloWorldGetData, HelloWorldApiV1HelloWorldGetResponses, ListDocumentsApiV1DocumentsGetData, ListDocumentsApiV1DocumentsGetResponses, UploadDocumentApiV1DocumentsPostData, UploadDocumentApiV1DocumentsPostErrors, UploadDocumentApiV1DocumentsPostResponses } from './types.gen';
+import type { DeleteDocumentApiV1DocumentsDocumentIdDeleteData, DeleteDocumentApiV1DocumentsDocumentIdDeleteErrors, DeleteDocumentApiV1DocumentsDocumentIdDeleteResponses, GetDocumentApiV1DocumentsDocumentIdGetData, GetDocumentApiV1DocumentsDocumentIdGetErrors, GetDocumentApiV1DocumentsDocumentIdGetResponses, GetDocumentsConfigApiV1DocumentsConfigGetData, GetDocumentsConfigApiV1DocumentsConfigGetResponses, HelloWorldApiV1HelloWorldGetData, HelloWorldApiV1HelloWorldGetResponses, ListDocumentsApiV1DocumentsGetData, ListDocumentsApiV1DocumentsGetResponses, UploadDocumentApiV1DocumentsPostData, UploadDocumentApiV1DocumentsPostErrors, UploadDocumentApiV1DocumentsPostResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -40,6 +40,11 @@ export const uploadDocumentApiV1DocumentsPost = <ThrowOnError extends boolean = 
         ...options.headers
     }
 });
+
+/**
+ * Get Documents Config
+ */
+export const getDocumentsConfigApiV1DocumentsConfigGet = <ThrowOnError extends boolean = false>(options?: Options<GetDocumentsConfigApiV1DocumentsConfigGetData, ThrowOnError>) => (options?.client ?? client).get<GetDocumentsConfigApiV1DocumentsConfigGetResponses, unknown, ThrowOnError>({ url: '/api/v1/documents/config', ...options });
 
 /**
  * Delete Document

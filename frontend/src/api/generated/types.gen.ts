@@ -45,6 +45,20 @@ export type DocumentResponse = {
 };
 
 /**
+ * DocumentsConfigResponse
+ */
+export type DocumentsConfigResponse = {
+    /**
+     * Allowed Extensions
+     */
+    allowed_extensions: Array<string>;
+    /**
+     * Max Upload Mb
+     */
+    max_upload_mb: number;
+};
+
+/**
  * HTTPValidationError
  */
 export type HttpValidationError = {
@@ -150,6 +164,22 @@ export type UploadDocumentApiV1DocumentsPostResponses = {
 };
 
 export type UploadDocumentApiV1DocumentsPostResponse = UploadDocumentApiV1DocumentsPostResponses[keyof UploadDocumentApiV1DocumentsPostResponses];
+
+export type GetDocumentsConfigApiV1DocumentsConfigGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/documents/config';
+};
+
+export type GetDocumentsConfigApiV1DocumentsConfigGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: DocumentsConfigResponse;
+};
+
+export type GetDocumentsConfigApiV1DocumentsConfigGetResponse = GetDocumentsConfigApiV1DocumentsConfigGetResponses[keyof GetDocumentsConfigApiV1DocumentsConfigGetResponses];
 
 export type DeleteDocumentApiV1DocumentsDocumentIdDeleteData = {
     body?: never;

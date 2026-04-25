@@ -3,11 +3,12 @@
 import { useState, useMemo, useRef } from "react";
 import {
   FileText, Download, Trash2, X, AlertTriangle, CheckSquare,
-  ChevronUp, ChevronDown, ChevronsUpDown,
+  ChevronUp, ChevronDown, ChevronsUpDown, Upload, AlertCircle,
+  RefreshCw,
 } from "lucide-react";
 import { useDocuments, type StoredDocument } from "@/context/DocumentsContext";
 
-type SortKey = keyof Omit<StoredDocument, "id" | "buffer">;
+type SortKey = keyof Omit<StoredDocument, "id" | "extension" | "displayName">;
 type SortDir = "asc" | "desc";
 
 const PAGE_SIZE_OPTIONS = [5, 10, 25, 50];
@@ -26,7 +27,6 @@ function sortDocs(docs: StoredDocument[], key: SortKey, dir: SortDir): StoredDoc
     if (key === "name") cmp = a.name.localeCompare(b.name);
     else if (key === "added") cmp = a.added.getTime() - b.added.getTime();
     else if (key === "sizeMb") cmp = a.sizeMb - b.sizeMb;
-    else if (key === "pages") cmp = a.pages - b.pages;
     return dir === "asc" ? cmp : -cmp;
   });
 }
@@ -72,13 +72,17 @@ function ConfirmDialog({ open, title, message, confirmLabel, confirmClass, onCon
   );
 }
 
-function ActionBar({ count, onDownload, onDelete, onClear }: { count: number; onDownload: () => void; onDelete: () => void; onClear: () => void }) {
+function ActionBar({ count, onDelete, onClear }: { count: number; onDelete: () => void; onClear: () => void }) {
   if (count === 0) return null;
   return (
     <div className="flex items-center gap-4 bg-blue-600 text-white px-5 py-3 rounded-xl shadow-lg">
       <CheckSquare size={18} className="shrink-0" />
       <span className="text-sm flex-1">{count} document{count !== 1 ? "s" : ""} selected</span>
-      <button onClick={onDownload} className="flex items-center gap-1.5 text-sm bg-white/15 hover:bg-white/25 px-4 py-1.5 rounded-lg transition-colors">
+      <button
+        disabled
+        title="Download coming soon"
+        className="flex items-center gap-1.5 text-sm bg-white/10 px-4 py-1.5 rounded-lg opacity-40 cursor-not-allowed"
+      >
         <Download size={15} /> Download
       </button>
       <button onClick={onDelete} className="flex items-center gap-1.5 text-sm bg-red-500 hover:bg-red-600 px-4 py-1.5 rounded-lg transition-colors">
@@ -117,14 +121,19 @@ function ColHeader({ label, sortKey, active, dir, align = "left", onClick }: Col
 }
 
 export function DocumentsPage() {
-  const { documents, removeDocuments } = useDocuments();
+  const { documents, limits, loading, error, refresh, uploadDocument, removeDocuments } = useDocuments();
 
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [confirmDialog, setConfirmDialog] = useState<"download" | "delete" | null>(null);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("added");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [pageSize, setPageSize] = useState<number>(10);
   const [page, setPage] = useState<number>(1);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const sortedDocs = useMemo(() => sortDocs(documents, sortKey, sortDir), [documents, sortKey, sortDir]);
   const totalPages = Math.max(1, Math.ceil(sortedDocs.length / pageSize));
@@ -150,7 +159,7 @@ export function DocumentsPage() {
     });
   };
 
-  const toggleOne = (id: string) => {
+  const toggleOne = (id: number) => {
     setSelected((prev) => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
@@ -158,22 +167,48 @@ export function DocumentsPage() {
     });
   };
 
-  const handleDeleteConfirm = () => {
-    removeDocuments(Array.from(selected));
-    setSelected(new Set());
-    setPage(1);
-    setConfirmDialog(null);
+  const handleDeleteConfirm = async () => {
+    setDeleteError(null);
+    try {
+      await removeDocuments(Array.from(selected));
+      setSelected(new Set());
+      setPage(1);
+      setConfirmDelete(false);
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Delete failed");
+      setConfirmDelete(false);
+    }
   };
 
-  const selectedNames = documents.filter((d) => selected.has(d.id)).map((d) => d.name);
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!fileInputRef.current) return;
+    fileInputRef.current.value = "";
+    if (!file) return;
+    setUploadError(null);
+    setUploading(true);
+    try {
+      await uploadDocument(file);
+      setPage(1);
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
 
-  const dialogMessage = (action: "download" | "delete") => {
+  const selectedNames = documents.filter((d) => selected.has(d.id)).map((d) => d.displayName);
+
+  const deleteMessage = () => {
     const names = selectedNames.slice(0, 3).map((n) => `"${n}"`).join(", ");
     const extra = selectedNames.length > 3 ? ` and ${selectedNames.length - 3} more` : "";
-    if (action === "download")
-      return `You are about to download ${selectedNames.length} file${selectedNames.length !== 1 ? "s" : ""}: ${names}${extra}.`;
     return `This will permanently delete ${selectedNames.length} file${selectedNames.length !== 1 ? "s" : ""}: ${names}${extra}. This action cannot be undone.`;
   };
+
+  const acceptAttr = limits ? limits.allowedExtensions.join(",") : undefined;
+  const helperText = limits
+    ? `${limits.allowedExtensions.map((e) => e.replace(".", "").toUpperCase()).join(", ")} up to ${limits.maxUploadMb} MB`
+    : null;
 
   const pageButtons = () => {
     const pages: (number | "...")[] = [];
@@ -191,16 +226,75 @@ export function DocumentsPage() {
 
   return (
     <div className="h-full flex flex-col bg-gray-50 overflow-hidden">
+      {/* Selection action bar */}
       <div className={`px-6 transition-all duration-200 ${selected.size > 0 ? "pt-4 pb-0" : "h-0 overflow-hidden"}`}>
         <ActionBar
           count={selected.size}
-          onDownload={() => setConfirmDialog("download")}
-          onDelete={() => setConfirmDialog("delete")}
+          onDelete={() => { setDeleteError(null); setConfirmDelete(true); }}
           onClear={() => setSelected(new Set())}
         />
       </div>
 
-      <div className="flex-1 overflow-auto p-6 pb-0">
+      {/* Upload strip */}
+      <div className="px-6 pt-4 pb-2 flex items-start gap-4">
+        <div>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm rounded-lg transition-colors"
+          >
+            {uploading ? (
+              <RefreshCw size={15} className="animate-spin" />
+            ) : (
+              <Upload size={15} />
+            )}
+            {uploading ? "Uploading…" : "Upload document"}
+          </button>
+          {helperText && (
+            <p className="mt-1 text-xs text-gray-400">{helperText}</p>
+          )}
+          {uploadError && (
+            <p className="mt-1 text-xs text-red-500 flex items-center gap-1">
+              <AlertCircle size={12} /> {uploadError}
+            </p>
+          )}
+        </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={acceptAttr}
+          className="hidden"
+          onChange={handleFileChange}
+        />
+      </div>
+
+      {/* Delete error banner */}
+      {deleteError && (
+        <div className="mx-6 mb-2 flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+          <AlertCircle size={15} className="shrink-0" />
+          <span className="flex-1">{deleteError}</span>
+          <button onClick={() => setDeleteError(null)} className="text-red-400 hover:text-red-600">
+            <X size={15} />
+          </button>
+        </div>
+      )}
+
+      {/* Table */}
+      <div className="flex-1 overflow-auto px-6 pb-0">
+        {/* List error banner */}
+        {error && (
+          <div className="mb-3 flex items-center gap-3 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+            <AlertCircle size={15} className="shrink-0" />
+            <span className="flex-1">{error}</span>
+            <button
+              onClick={refresh}
+              className="flex items-center gap-1 text-red-600 hover:text-red-800 font-medium"
+            >
+              <RefreshCw size={13} /> Retry
+            </button>
+          </div>
+        )}
+
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
           <table className="w-full text-sm">
             <thead>
@@ -211,17 +305,23 @@ export function DocumentsPage() {
                     ref={(el) => { if (el) el.indeterminate = somePageSelected; }}
                     checked={allPageSelected}
                     onChange={toggleAll}
-                    className="w-4 h-4 rounded border-gray-300 cursor-pointer accent-blue-600"
+                    disabled={loading || documents.length === 0}
+                    className="w-4 h-4 rounded border-gray-300 cursor-pointer accent-blue-600 disabled:cursor-default"
                   />
                 </th>
                 <ColHeader label="Name" sortKey="name" active={sortKey} dir={sortDir} onClick={handleSort} />
                 <ColHeader label="Added" sortKey="added" active={sortKey} dir={sortDir} onClick={handleSort} />
                 <ColHeader label="Size (MB)" sortKey="sizeMb" active={sortKey} dir={sortDir} align="right" onClick={handleSort} />
-                <ColHeader label="Pages" sortKey="pages" active={sortKey} dir={sortDir} align="right" onClick={handleSort} />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {pageDocs.map((doc) => {
+              {loading ? (
+                <tr>
+                  <td colSpan={4} className="px-4 py-16 text-center text-gray-400 text-sm">
+                    Loading documents…
+                  </td>
+                </tr>
+              ) : pageDocs.map((doc) => {
                 const isSelected = selected.has(doc.id);
                 return (
                   <tr key={doc.id} onClick={() => toggleOne(doc.id)} className={`cursor-pointer transition-colors ${isSelected ? "bg-blue-50" : "hover:bg-gray-50"}`}>
@@ -231,26 +331,23 @@ export function DocumentsPage() {
                     <td className="px-4 py-3.5">
                       <div className="flex items-center gap-3">
                         <div className="p-1.5 rounded-lg bg-red-50 text-red-500 shrink-0"><FileText size={16} /></div>
-                        <div className="min-w-0">
-                          <span className={`truncate block max-w-xs ${isSelected ? "text-blue-700" : "text-gray-800"}`}>{doc.name}</span>
-                          {doc.buffer && <span className="text-xs text-green-600">Uploaded</span>}
-                        </div>
+                        <span className={`truncate block max-w-xs ${isSelected ? "text-blue-700" : "text-gray-800"}`}>{doc.displayName}</span>
                       </div>
                     </td>
                     <td className="px-4 py-3.5 text-gray-500 whitespace-nowrap">{formatDate(doc.added)}</td>
                     <td className="px-4 py-3.5 text-gray-600 text-right">{doc.sizeMb.toFixed(1)}</td>
-                    <td className="px-4 py-3.5 text-gray-600 text-right">{doc.pages}</td>
                   </tr>
                 );
               })}
-              {documents.length === 0 && (
-                <tr><td colSpan={5} className="px-4 py-16 text-center text-gray-400 text-sm">No documents found.</td></tr>
+              {!loading && documents.length === 0 && !error && (
+                <tr><td colSpan={4} className="px-4 py-16 text-center text-gray-400 text-sm">No documents found.</td></tr>
               )}
             </tbody>
           </table>
         </div>
       </div>
 
+      {/* Pagination */}
       <div className="px-6 py-4 flex items-center justify-between gap-4 bg-gray-50 border-t border-gray-200 shrink-0">
         <div className="flex items-center gap-3 text-sm text-gray-500">
           <span>
@@ -283,22 +380,13 @@ export function DocumentsPage() {
       </div>
 
       <ConfirmDialog
-        open={confirmDialog === "download"}
-        title="Download documents?"
-        message={dialogMessage("download")}
-        confirmLabel="Download"
-        confirmClass="bg-blue-600 hover:bg-blue-700"
-        onConfirm={() => { setConfirmDialog(null); setSelected(new Set()); }}
-        onCancel={() => setConfirmDialog(null)}
-      />
-      <ConfirmDialog
-        open={confirmDialog === "delete"}
+        open={confirmDelete}
         title="Delete documents?"
-        message={dialogMessage("delete")}
+        message={deleteMessage()}
         confirmLabel="Delete"
         confirmClass="bg-red-600 hover:bg-red-700"
         onConfirm={handleDeleteConfirm}
-        onCancel={() => setConfirmDialog(null)}
+        onCancel={() => setConfirmDelete(false)}
       />
     </div>
   );

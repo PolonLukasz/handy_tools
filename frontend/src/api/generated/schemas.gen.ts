@@ -55,6 +55,28 @@ export const DocumentResponseSchema = {
     title: 'DocumentResponse'
 } as const;
 
+export const DocumentsConfigResponseSchema = {
+    properties: {
+        allowed_extensions: {
+            items: {
+                type: 'string'
+            },
+            type: 'array',
+            title: 'Allowed Extensions'
+        },
+        max_upload_mb: {
+            type: 'number',
+            title: 'Max Upload Mb'
+        }
+    },
+    type: 'object',
+    required: [
+        'allowed_extensions',
+        'max_upload_mb'
+    ],
+    title: 'DocumentsConfigResponse'
+} as const;
+
 export const HTTPValidationErrorSchema = {
     properties: {
         detail: {

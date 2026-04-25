@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
 
+from app.config import settings
 from app.dependencies import get_document_service
-from app.schemas.documents import DocumentResponse
+from app.schemas.documents import DocumentResponse, DocumentsConfigResponse
 from app.services.documents import (
     DocumentNotFoundError,
     DocumentService,
@@ -19,6 +20,14 @@ async def list_documents(
 ) -> list[DocumentResponse]:
     documents = await service.list_all()
     return [DocumentResponse.model_validate(d) for d in documents]
+
+
+@router.get("/config", response_model=DocumentsConfigResponse)
+async def get_documents_config() -> DocumentsConfigResponse:
+    return DocumentsConfigResponse(
+        allowed_extensions=sorted(settings.allowed_extensions_set),
+        max_upload_mb=settings.max_upload_mb,
+    )
 
 
 @router.get("/{document_id}", response_model=DocumentResponse)

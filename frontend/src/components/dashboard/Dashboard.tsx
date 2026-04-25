@@ -112,7 +112,7 @@ function BalanceTile() {
 }
 
 function DocumentsTile() {
-  const { documents } = useDocuments();
+  const { documents, loading, error } = useDocuments();
 
   const recent = useMemo(
     () => [...documents].sort((a, b) => b.added.getTime() - a.added.getTime()).slice(0, 10),
@@ -128,7 +128,9 @@ function DocumentsTile() {
           </div>
           <div>
             <p className="text-sm text-gray-800">Recent Documents</p>
-            <p className="text-xs text-gray-400">{documents.length} total</p>
+            {!loading && !error && (
+              <p className="text-xs text-gray-400">{documents.length} total</p>
+            )}
           </div>
         </div>
         <Link
@@ -140,22 +142,42 @@ function DocumentsTile() {
       </div>
 
       <div className="flex-1 overflow-y-auto divide-y divide-gray-50">
-        {recent.map((doc) => (
-          <div key={doc.id} className="flex items-center gap-3 px-6 py-3 hover:bg-gray-50 transition-colors">
-            <div className="p-1.5 rounded-lg bg-red-50 shrink-0">
-              <FileText size={13} className="text-red-400" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm text-gray-800 truncate">{doc.name}</p>
-              <p className="text-xs text-gray-400">{doc.pages} pages · {doc.sizeMb.toFixed(1)} MB</p>
-            </div>
-            <span className="text-xs text-gray-400 shrink-0 tabular-nums">{formatDate(doc.added)}</span>
-          </div>
-        ))}
-        {recent.length === 0 && (
+        {loading ? (
+          <>
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="flex items-center gap-3 px-6 py-3">
+                <div className="p-1.5 rounded-lg bg-gray-100 shrink-0 w-7 h-7" />
+                <div className="flex-1 space-y-1.5">
+                  <div className="h-3 bg-gray-100 rounded w-3/4" />
+                  <div className="h-2.5 bg-gray-100 rounded w-1/4" />
+                </div>
+              </div>
+            ))}
+          </>
+        ) : error ? (
           <div className="flex items-center justify-center py-12 text-sm text-gray-400">
-            No documents yet
+            Couldn&apos;t load documents
           </div>
+        ) : (
+          <>
+            {recent.map((doc) => (
+              <div key={doc.id} className="flex items-center gap-3 px-6 py-3 hover:bg-gray-50 transition-colors">
+                <div className="p-1.5 rounded-lg bg-red-50 shrink-0">
+                  <FileText size={13} className="text-red-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-gray-800 truncate">{doc.displayName}</p>
+                  <p className="text-xs text-gray-400">{doc.sizeMb.toFixed(1)} MB</p>
+                </div>
+                <span className="text-xs text-gray-400 shrink-0 tabular-nums">{formatDate(doc.added)}</span>
+              </div>
+            ))}
+            {recent.length === 0 && (
+              <div className="flex items-center justify-center py-12 text-sm text-gray-400">
+                No documents yet
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

@@ -11,6 +11,7 @@ services:
       STORED_DOCUMENTS_DIR: /app/stored_documents
     volumes:
       - stored_documents:/app/stored_documents
+      - ./backend/app:/app/app
     depends_on:
       db:
         condition: service_healthy

@@ -41,7 +41,7 @@ export const DEFAULT_RATES: ExchangeRates = {
 };
 
 export function toPLN(amount: number, currency: string, rates: ExchangeRates): number {
-  const rate = (rates as Record<string, number>)[currency] ?? 1;
+  const rate = (rates as unknown as Record<string, number>)[currency] ?? 1;
   return amount * rate;
 }
 

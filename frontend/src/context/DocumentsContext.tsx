@@ -5,59 +5,143 @@ import {
   useContext,
   useState,
   useCallback,
+  useEffect,
   type ReactNode,
 } from "react";
+import {
+  listDocumentsApiV1DocumentsGet,
+  uploadDocumentApiV1DocumentsPost,
+  deleteDocumentApiV1DocumentsDocumentIdDelete,
+  getDocumentsConfigApiV1DocumentsConfigGet,
+  type DocumentResponse,
+} from "@/api";
 
 export interface StoredDocument {
-  id: string;
+  id: number;
   name: string;
+  extension: string;
+  displayName: string;
   added: Date;
   sizeMb: number;
-  pages: number;
-  buffer: ArrayBuffer | null;
+}
+
+export interface UploadLimits {
+  allowedExtensions: string[];
+  maxUploadMb: number;
 }
 
 interface DocumentsContextType {
   documents: StoredDocument[];
-  addDocuments: (docs: StoredDocument[]) => void;
-  removeDocuments: (ids: string[]) => void;
+  limits: UploadLimits | null;
+  loading: boolean;
+  error: string | null;
+  refresh: () => Promise<void>;
+  uploadDocument: (file: File) => Promise<StoredDocument>;
+  removeDocuments: (ids: number[]) => Promise<void>;
 }
 
-const SEED_DOCS: StoredDocument[] = [
-  { id: "1", name: "Q1 Financial Report.pdf", added: new Date("2026-03-15T09:24:00"), sizeMb: 3.2, pages: 18, buffer: null },
-  { id: "2", name: "Project Proposal v2.pdf", added: new Date("2026-03-22T14:05:00"), sizeMb: 1.8, pages: 9, buffer: null },
-  { id: "3", name: "Employee Handbook 2026.pdf", added: new Date("2026-02-10T11:00:00"), sizeMb: 5.4, pages: 42, buffer: null },
-  { id: "4", name: "Design System Guidelines.pdf", added: new Date("2026-04-01T08:30:00"), sizeMb: 7.1, pages: 56, buffer: null },
-  { id: "5", name: "Meeting Notes - March.pdf", added: new Date("2026-03-31T16:45:00"), sizeMb: 0.6, pages: 4, buffer: null },
-  { id: "6", name: "Infrastructure Audit.pdf", added: new Date("2026-01-20T10:15:00"), sizeMb: 4.9, pages: 31, buffer: null },
-  { id: "7", name: "Marketing Strategy 2026.pdf", added: new Date("2026-02-28T13:20:00"), sizeMb: 2.3, pages: 15, buffer: null },
-  { id: "8", name: "Legal Agreement - NDA.pdf", added: new Date("2026-04-05T09:00:00"), sizeMb: 0.4, pages: 3, buffer: null },
-  { id: "9", name: "Annual Budget Overview.pdf", added: new Date("2026-03-05T17:10:00"), sizeMb: 2.9, pages: 22, buffer: null },
-  { id: "10", name: "User Research Summary.pdf", added: new Date("2026-04-10T12:00:00"), sizeMb: 1.1, pages: 8, buffer: null },
-  { id: "11", name: "Tech Stack Evaluation.pdf", added: new Date("2026-03-18T15:30:00"), sizeMb: 3.7, pages: 26, buffer: null },
-  { id: "12", name: "Onboarding Checklist.pdf", added: new Date("2026-04-14T08:00:00"), sizeMb: 0.3, pages: 2, buffer: null },
-];
+function toStoredDocument(r: DocumentResponse): StoredDocument {
+  return {
+    id: r.id,
+    name: r.name,
+    extension: r.extension,
+    displayName: r.name + r.extension,
+    added: new Date(r.created_at),
+    sizeMb: r.size_mb,
+  };
+}
+
+function extractErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  if (error && typeof error === "object" && "detail" in error) {
+    const detail = (error as { detail: unknown }).detail;
+    if (typeof detail === "string") return detail;
+    if (Array.isArray(detail) && detail.length > 0) {
+      return String(detail[0]?.msg ?? "Unknown error");
+    }
+  }
+  return "An unexpected error occurred";
+}
 
 const DocumentsContext = createContext<DocumentsContextType | null>(null);
 
 export function DocumentsProvider({ children }: { children: ReactNode }) {
-  const [documents, setDocuments] = useState<StoredDocument[]>(SEED_DOCS);
+  const [documents, setDocuments] = useState<StoredDocument[]>([]);
+  const [limits, setLimits] = useState<UploadLimits | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const addDocuments = useCallback((docs: StoredDocument[]) => {
-    setDocuments((prev) => {
-      const existingIds = new Set(prev.map((d) => d.id));
-      const fresh = docs.filter((d) => !existingIds.has(d.id));
-      return [...prev, ...fresh];
+  const refresh = useCallback(async () => {
+    setError(null);
+    const { data, error: fetchError } = await listDocumentsApiV1DocumentsGet();
+    if (fetchError) {
+      setError(extractErrorMessage(fetchError));
+    } else if (data) {
+      setDocuments(data.map(toStoredDocument));
+    }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      const [listResult, configResult] = await Promise.all([
+        listDocumentsApiV1DocumentsGet(),
+        getDocumentsConfigApiV1DocumentsConfigGet(),
+      ]);
+      if (cancelled) return;
+      if (listResult.error) {
+        setError(extractErrorMessage(listResult.error));
+      } else if (listResult.data) {
+        setDocuments(listResult.data.map(toStoredDocument));
+      }
+      if (configResult.data) {
+        setLimits({
+          allowedExtensions: configResult.data.allowed_extensions,
+          maxUploadMb: configResult.data.max_upload_mb,
+        });
+      }
+      setLoading(false);
+    }
+    load();
+    return () => { cancelled = true; };
+  }, []);
+
+  const uploadDocument = useCallback(async (file: File): Promise<StoredDocument> => {
+    const { data, error: uploadError } = await uploadDocumentApiV1DocumentsPost({
+      body: { file },
     });
+    if (uploadError) {
+      throw new Error(extractErrorMessage(uploadError));
+    }
+    const stored = toStoredDocument(data!);
+    setDocuments((prev) => [stored, ...prev]);
+    return stored;
   }, []);
 
-  const removeDocuments = useCallback((ids: string[]) => {
-    const set = new Set(ids);
-    setDocuments((prev) => prev.filter((d) => !set.has(d.id)));
-  }, []);
+  const removeDocuments = useCallback(async (ids: number[]): Promise<void> => {
+    const results = await Promise.allSettled(
+      ids.map((id) =>
+        deleteDocumentApiV1DocumentsDocumentIdDelete({ path: { document_id: id } })
+      )
+    );
+    const failures = results.filter((r) => r.status === "rejected" || (r.status === "fulfilled" && r.value.error));
+    if (failures.length > 0) {
+      await refresh();
+      const firstFailure = failures[0];
+      const msg =
+        firstFailure.status === "rejected"
+          ? String(firstFailure.reason)
+          : extractErrorMessage((firstFailure as PromiseFulfilledResult<{ error: unknown }>).value.error);
+      throw new Error(msg);
+    }
+    const deletedSet = new Set(ids);
+    setDocuments((prev) => prev.filter((d) => !deletedSet.has(d.id)));
+  }, [refresh]);
 
   return (
-    <DocumentsContext.Provider value={{ documents, addDocuments, removeDocuments }}>
+    <DocumentsContext.Provider value={{ documents, limits, loading, error, refresh, uploadDocument, removeDocuments }}>
       {children}
     </DocumentsContext.Provider>
   );

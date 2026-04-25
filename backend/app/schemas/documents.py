@@ -12,3 +12,8 @@ class DocumentResponse(BaseModel):
     path: str
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class DocumentsConfigResponse(BaseModel):
+    allowed_extensions: list[str]
+    max_upload_mb: float

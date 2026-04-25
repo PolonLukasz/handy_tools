@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     app_name: str = "HandyTools"
     app_env: str = "development"
     debug: bool = False
+    log_level: str = "INFO"
 
     db_host: str = "localhost"
     db_port: int = 5432
@@ -17,6 +18,11 @@ class Settings(BaseSettings):
     stored_documents_dir: str = "stored_documents"
     allowed_extensions: str = ".pdf,.doc,.docx,.xls,.xlsx,.txt"
     max_upload_mb: float = 50.0
+    cors_allow_origins: str = "http://localhost:3000"
+
+    @property
+    def cors_allow_origins_list(self) -> list[str]:
+        return [o.strip() for o in self.cors_allow_origins.split(",") if o.strip()]
     
     @property
     def database_url(self) -> str:
